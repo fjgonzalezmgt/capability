@@ -17,6 +17,9 @@ NULL
 #' @return No devuelve valor. Registra reactividad y salidas en la sesion.
 #' @export
 server <- function(input, output, session) {
+  capability_plot_dims <- list(width = 2400, height = 1600)
+  study_plot_dims <- list(width = 2600, height = 2200)
+
   #' Prepara una o varias columnas de medicion para capacidad de proceso
   #'
   #' @param df `data.frame` fuente.
@@ -49,7 +52,12 @@ server <- function(input, output, session) {
   #' @param res Resolucion del PNG.
   #'
   #' @return Invisiblemente, la ruta del archivo generado.
-  build_capability_plot <- function(path, width = 2400, height = 1600, res = 200) {
+  build_capability_plot <- function(
+    path,
+    width = capability_plot_dims$width,
+    height = capability_plot_dims$height,
+    res = 200
+  ) {
     req(analysis_result())
 
     result <- current_result()
@@ -118,7 +126,12 @@ server <- function(input, output, session) {
   #' @param res Resolucion del PNG.
   #'
   #' @return Invisiblemente, la ruta del archivo generado.
-  build_study_plot <- function(path, width = 2600, height = 2200, res = 200) {
+  build_study_plot <- function(
+    path,
+    width = study_plot_dims$width,
+    height = study_plot_dims$height,
+    res = 200
+  ) {
     req(analysis_result())
 
     result <- current_result()
@@ -355,6 +368,8 @@ server <- function(input, output, session) {
     list(
       src = outfile,
       contentType = "image/png",
+      width = capability_plot_dims$width,
+      height = capability_plot_dims$height,
       alt = "Grafico de capacidad de proceso"
     )
   }, deleteFile = TRUE)
@@ -366,19 +381,11 @@ server <- function(input, output, session) {
     list(
       src = outfile,
       contentType = "image/png",
+      width = study_plot_dims$width,
+      height = study_plot_dims$height,
       alt = "Capability sixpack"
     )
   }, deleteFile = TRUE)
-
-  output$download_plot <- downloadHandler(
-    filename = function() {
-      label <- gsub("[^A-Za-z0-9_-]+", "-", analysis_result()$label)
-      sprintf("capability-%s-%s.png", label, Sys.Date())
-    },
-    content = function(file) {
-      build_capability_plot(file)
-    }
-  )
 
   output$download_excel <- downloadHandler(
     filename = function() {

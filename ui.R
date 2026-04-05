@@ -21,6 +21,85 @@ library(bslib)
 #' @export
 ui <- page_sidebar(
   title = "Capacidad de proceso con SixSigma",
+  tags$head(
+    tags$style(HTML("
+      .plot-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .copy-status {
+        color: #4b5563;
+        font-size: 0.9rem;
+      }
+
+      #capability_plot img,
+      #study_plot img {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        object-fit: contain;
+      }
+    ")),
+    tags$script(HTML("
+      window.copyPlotToClipboard = async function(imageId, statusId) {
+        const image = document.querySelector(`#${imageId} img`);
+        const status = document.getElementById(statusId);
+
+        if (!image) {
+          if (status) status.textContent = 'Genera el grafico antes de copiarlo.';
+          return;
+        }
+
+        if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {
+          if (status) status.textContent = 'El navegador no permite copiar imagenes.';
+          return;
+        }
+
+        try {
+          if (!image.complete) {
+            await new Promise((resolve, reject) => {
+              image.addEventListener('load', resolve, { once: true });
+              image.addEventListener('error', reject, { once: true });
+            });
+          }
+
+          const width = image.naturalWidth || image.width;
+          const height = image.naturalHeight || image.height;
+
+          if (!width || !height) {
+            throw new Error('La imagen no tiene dimensiones validas.');
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const context = canvas.getContext('2d');
+          context.drawImage(image, 0, 0, width, height);
+
+          const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob(function(result) {
+              if (result) {
+                resolve(result);
+              } else {
+                reject(new Error('No se pudo generar la imagen.'));
+              }
+            }, 'image/png');
+          });
+
+          await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+
+          if (status) status.textContent = 'Imagen copiada al portapapeles.';
+        } catch (error) {
+          if (status) status.textContent = 'No se pudo copiar la imagen. Revisa permisos del navegador.';
+        }
+      };
+    "))
+  ),
   sidebar = sidebar(
     width = 340,
     h4("Datos"),
@@ -84,6 +163,10 @@ ui <- page_sidebar(
   card(
     full_screen = TRUE,
     uiOutput("active_measurement_control"),
+    tags$div(
+      style = "padding: 1rem 1rem 0 1rem;",
+      downloadButton("download_excel", "Exportar resultados Excel")
+    ),
     navset_card_tab(
       nav_panel(
         "Vista previa",
@@ -94,10 +177,6 @@ ui <- page_sidebar(
       nav_panel(
         "Resultados",
         br(),
-        tags$div(
-          style = "margin-bottom: 1rem;",
-          downloadButton("download_excel", "Exportar resultados Excel")
-        ),
         verbatimTextOutput("analysis_log"),
         h4("Resumen"),
         tableOutput("summary_table"),
@@ -108,14 +187,30 @@ ui <- page_sidebar(
         "Graficos",
         br(),
         tags$div(
-          style = "margin-bottom: 1rem;",
-          downloadButton("download_plot", "Descargar grafico PNG")
+          class = "plot-toolbar",
+          tags$button(
+            type = "button",
+            class = "btn btn-outline-secondary",
+            onclick = "window.copyPlotToClipboard('capability_plot', 'capability_plot_copy_status')",
+            "Copiar al portapapeles"
+          ),
+          tags$span(id = "capability_plot_copy_status", class = "copy-status")
         ),
         imageOutput("capability_plot", width = "100%")
       ),
       nav_panel(
         "Sixpack",
         br(),
+        tags$div(
+          class = "plot-toolbar",
+          tags$button(
+            type = "button",
+            class = "btn btn-outline-secondary",
+            onclick = "window.copyPlotToClipboard('study_plot', 'study_plot_copy_status')",
+            "Copiar al portapapeles"
+          ),
+          tags$span(id = "study_plot_copy_status", class = "copy-status")
+        ),
         imageOutput("study_plot", width = "100%")
       ),
       nav_panel(
