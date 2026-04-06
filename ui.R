@@ -53,6 +53,26 @@ ui <- page_sidebar(
         height: auto;
         object-fit: contain;
       }
+
+      .sixpack-panel {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 0;
+        border: 0;
+        box-shadow: none;
+        background: transparent;
+      }
+
+      .sixpack-panel .shiny-image-output {
+        min-height: 0;
+      }
+
+      #study_plot img {
+        max-height: 620px;
+        margin: 0 auto;
+        border: 0;
+        box-shadow: none;
+      }
     ")),
     tags$script(HTML("
       window.copyPlotToClipboard = async function(imageId, statusId) {
@@ -232,16 +252,19 @@ ui <- page_sidebar(
         "Sixpack",
         br(),
         tags$div(
-          class = "plot-toolbar",
-          tags$button(
-            type = "button",
-            class = "btn btn-outline-secondary",
-            onclick = "window.copyPlotToClipboard('study_plot', 'study_plot_copy_status')",
-            "Copiar al portapapeles"
+          class = "plot-panel sixpack-panel",
+          tags$div(
+            class = "plot-toolbar",
+            tags$button(
+              type = "button",
+              class = "btn btn-outline-secondary",
+              onclick = "window.copyPlotToClipboard('study_plot', 'study_plot_copy_status')",
+              "Copiar al portapapeles"
+            ),
+            tags$span(id = "study_plot_copy_status", class = "copy-status")
           ),
-          tags$span(id = "study_plot_copy_status", class = "copy-status")
-        ),
-        imageOutput("study_plot", width = "100%")
+          imageOutput("study_plot", width = "100%")
+        )
       ),
       nav_panel(
         "Interpretacion",

@@ -19,7 +19,7 @@ NULL
 server <- function(input, output, session) {
   capability_plot_dims <- list(width = 2400, height = 1600)
   imr_plot_dims <- list(width = 2400, height = 2200)
-  study_plot_dims <- list(width = 2600, height = 2200)
+  study_plot_dims <- list(width = 2600, height = 1550)
 
   #' Prepara una o varias columnas de medicion para capacidad de proceso
   #'
@@ -230,6 +230,20 @@ server <- function(input, output, session) {
 
     grDevices::png(filename = path, width = width, height = height, res = res)
     on.exit(grDevices::dev.off(), add = TRUE)
+    old_par <- graphics::par(no.readonly = TRUE)
+    on.exit(graphics::par(old_par), add = TRUE)
+
+    graphics::par(
+      bg = "#f8fafc",
+      fg = "#0f172a",
+      col.axis = "#334155",
+      col.lab = "#0f172a",
+      col.main = "#0f172a",
+      col.sub = "#475569",
+      bty = "n",
+      cex.main = 1.15,
+      cex.sub = 0.95
+    )
 
     SixSigma::ss.study.ca(
       xST = x,
@@ -239,7 +253,17 @@ server <- function(input, output, session) {
       alpha = input$alpha,
       f.na.rm = isTRUE(input$remove_na),
       f.main = or_default(input$plot_title, "Histograma de capacidad de proceso"),
-      f.sub = or_default(input$plot_subtitle, "")
+      f.sub = or_default(input$plot_subtitle, ""),
+      f.colours = c(
+        "#3b82f6",
+        "#94a3b8",
+        "#0f172a",
+        "#f59e0b",
+        "#dc2626",
+        "#ffffff",
+        "#0f172a",
+        "#334155"
+      )
     )
 
     invisible(path)
