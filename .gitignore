@@ -3,6 +3,8 @@
 .Rapp.history
 .RData
 .Ruserdata
+Rplots.pdf
+Rplots
 
 # RStudio project and user state
 .Rproj.user/

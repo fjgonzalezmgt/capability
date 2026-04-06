@@ -30,12 +30,22 @@ ui <- page_sidebar(
         margin-bottom: 1rem;
       }
 
+      .plot-container {
+        width: 100%;
+      }
+
+      .plot-panel {
+        width: 100%;
+        margin-bottom: 1.5rem;
+      }
+
       .copy-status {
         color: #4b5563;
         font-size: 0.9rem;
       }
 
       #capability_plot img,
+      #imr_plot img,
       #study_plot img {
         display: block;
         width: 100%;
@@ -187,16 +197,36 @@ ui <- page_sidebar(
         "Graficos",
         br(),
         tags$div(
-          class = "plot-toolbar",
-          tags$button(
-            type = "button",
-            class = "btn btn-outline-secondary",
-            onclick = "window.copyPlotToClipboard('capability_plot', 'capability_plot_copy_status')",
-            "Copiar al portapapeles"
+          class = "plot-container",
+          tags$div(
+            class = "plot-panel",
+            tags$div(
+              class = "plot-toolbar",
+              tags$button(
+                type = "button",
+                class = "btn btn-outline-secondary",
+                onclick = "window.copyPlotToClipboard('capability_plot', 'capability_plot_copy_status')",
+                "Copiar al portapapeles"
+              ),
+              tags$span(id = "capability_plot_copy_status", class = "copy-status")
+            ),
+            imageOutput("capability_plot", width = "100%")
           ),
-          tags$span(id = "capability_plot_copy_status", class = "copy-status")
-        ),
-        imageOutput("capability_plot", width = "100%")
+          tags$div(
+            class = "plot-panel",
+            tags$div(
+              class = "plot-toolbar",
+              tags$button(
+                type = "button",
+                class = "btn btn-outline-secondary",
+                onclick = "window.copyPlotToClipboard('imr_plot', 'imr_plot_copy_status')",
+                "Copiar IMR al portapapeles"
+              ),
+              tags$span(id = "imr_plot_copy_status", class = "copy-status")
+            ),
+            imageOutput("imr_plot", width = "100%")
+          ),
+        )
       ),
       nav_panel(
         "Sixpack",
@@ -234,7 +264,7 @@ ui <- page_sidebar(
       nav_panel(
         "Ayuda",
         br(),
-        p("La app ejecuta las funciones ", code("SixSigma::ss.ca.cp"), ", ", code("SixSigma::ss.ca.cpk"), ", ", code("SixSigma::ss.ca.z"), " y ", code("SixSigma::ss.study.ca"), "."),
+        p("La app ejecuta las funciones ", code("SixSigma::ss.ca.cp"), ", ", code("SixSigma::ss.ca.cpk"), ", ", code("SixSigma::ss.ca.z"), ", ", code("SixSigma::ss.study.ca"), " y constantes de ", code("SixSigma::ss.cc"), "."),
         p("Necesitas un archivo con al menos una columna numerica de medicion."),
         tags$ul(
           tags$li("puedes seleccionar una o varias columnas numericas comparables"),

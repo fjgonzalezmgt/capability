@@ -227,10 +227,11 @@ as_export_table <- function(x) {
 #' @param path Ruta del archivo de salida.
 #' @param capability_result Resultado devuelto por `run_process_capability()`.
 #' @param plot_path Ruta local del PNG con el grafico.
+#' @param imr_plot_path Ruta local del PNG con el grafico IMR.
 #' @param interpretation_text Texto de interpretacion generado por LLM.
 #'
 #' @return Invisiblemente, la ruta del archivo generado.
-write_capability_export_workbook <- function(path, capability_result, plot_path, interpretation_text = NULL, study_plot_path = NULL) {
+write_capability_export_workbook <- function(path, capability_result, plot_path, imr_plot_path = NULL, interpretation_text = NULL, study_plot_path = NULL) {
   if (!requireNamespace("openxlsx", quietly = TRUE)) {
     stop(
       paste(
@@ -273,6 +274,27 @@ write_capability_export_workbook <- function(path, capability_result, plot_path,
       "Grafico",
       x = "No se pudo generar el grafico para la exportacion.",
       startRow = 2,
+      startCol = 2
+    )
+  }
+
+  if (!is.null(imr_plot_path) && file.exists(imr_plot_path)) {
+    openxlsx::insertImage(
+      wb,
+      sheet = "Grafico",
+      file = imr_plot_path,
+      startRow = 30,
+      startCol = 2,
+      width = 8,
+      height = 7.5,
+      units = "in"
+    )
+  } else {
+    openxlsx::writeData(
+      wb,
+      "Grafico",
+      x = "No se pudo generar el grafico IMR para la exportacion.",
+      startRow = 30,
       startCol = 2
     )
   }

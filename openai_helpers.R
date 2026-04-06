@@ -98,6 +98,7 @@ extract_response_text <- function(body) {
 #'
 #' @param capability_result Resultado devuelto por `run_process_capability()`.
 #' @param plot_path Ruta opcional a una imagen PNG del histograma.
+#' @param imr_plot_path Ruta opcional a una imagen PNG del grafico IMR.
 #' @param study_plot_path Ruta opcional a una imagen PNG del estudio grafico de capacidad.
 #' @param language Idioma en el que se solicita la respuesta.
 #' @param extra_instructions Instrucciones adicionales para refinar la salida.
@@ -105,7 +106,7 @@ extract_response_text <- function(body) {
 #' @return Texto interpretativo generado por OpenAI o el cuerpo JSON
 #'   serializado cuando no se puede extraer texto directo.
 #' @export
-openai_interpret_capability <- function(capability_result, plot_path = NULL, study_plot_path = NULL, language = "es", extra_instructions = "") {
+openai_interpret_capability <- function(capability_result, plot_path = NULL, imr_plot_path = NULL, study_plot_path = NULL, language = "es", extra_instructions = "") {
   if (!requireNamespace("httr2", quietly = TRUE)) {
     stop("Falta instalar 'httr2'. Usa install.packages('httr2').", call. = FALSE)
   }
@@ -152,6 +153,14 @@ openai_interpret_capability <- function(capability_result, plot_path = NULL, stu
     )
   }
 
+  if (!is.null(imr_plot_path) && file.exists(imr_plot_path)) {
+    message_content[[length(message_content) + 1]] <- list(
+      type = "input_image",
+      image_url = encode_image_data_url(imr_plot_path),
+      detail = "high"
+    )
+  }
+
   if (!is.null(study_plot_path) && file.exists(study_plot_path)) {
     message_content[[length(message_content) + 1]] <- list(
       type = "input_image",
@@ -164,7 +173,7 @@ openai_interpret_capability <- function(capability_result, plot_path = NULL, stu
     model = model,
     instructions = paste(
       "Actua como experto en capacidad de proceso y control estadistico.",
-      "Usa el resultado numerico, el histograma y el estudio grafico adjunto si estan disponibles.",
+      "Usa el resultado numerico y todos los graficos adjuntos disponibles, incluyendo histograma, IMR y estudio grafico.",
       "Responde en espanol claro y conciso para un usuario de negocio."
     ),
     input = list(

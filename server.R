@@ -18,6 +18,7 @@ NULL
 #' @export
 server <- function(input, output, session) {
   capability_plot_dims <- list(width = 2400, height = 1600)
+  imr_plot_dims <- list(width = 2400, height = 2200)
   study_plot_dims <- list(width = 2600, height = 2200)
 
   #' Prepara una o varias columnas de medicion para capacidad de proceso
@@ -65,7 +66,7 @@ server <- function(input, output, session) {
     limits <- result$limits
     legend_labels <- c("Media")
     legend_colors <- c("#1d4ed8")
-    legend_types <- c(1)
+    legend_types <- c(3)
     x_bounds <- c(x, limits$lsl, limits$usl)
     x_bounds <- x_bounds[is.finite(x_bounds)]
     x_range <- range(x_bounds, na.rm = TRUE)
@@ -75,22 +76,27 @@ server <- function(input, output, session) {
     }
     x_padding <- x_span * 0.08
     x_limits <- c(x_range[1] - x_padding, x_range[2] + x_padding)
+    hist_info <- graphics::hist(x, breaks = "FD", plot = FALSE)
+    hist_max <- max(hist_info$counts)
 
     grDevices::png(filename = path, width = width, height = height, res = res)
     on.exit(grDevices::dev.off(), add = TRUE)
+    old_par <- graphics::par(no.readonly = TRUE)
+    on.exit(graphics::par(old_par), add = TRUE)
 
-    graphics::hist(
+    hist_info <- graphics::hist(
       x,
-      breaks = "FD",
+      breaks = hist_info$breaks,
       col = "#93c5fd",
       border = "white",
       main = or_default(input$plot_title, "Histograma de capacidad de proceso"),
       sub = or_default(input$plot_subtitle, ""),
       xlab = analysis_result()$label,
-      xlim = x_limits
+      xlim = x_limits,
+      ylim = c(0, hist_max * 1.18)
     )
 
-    graphics::abline(v = mean(x, na.rm = TRUE), col = "#1d4ed8", lwd = 2)
+    graphics::abline(v = mean(x, na.rm = TRUE), col = "#1d4ed8", lwd = 2, lty = 3)
 
     if (!is.na(limits$lsl)) {
       graphics::abline(v = limits$lsl, col = "#dc2626", lwd = 2, lty = 2)
@@ -114,6 +120,90 @@ server <- function(input, output, session) {
       lty = legend_types,
       bty = "n"
     )
+
+    box_stats <- grDevices::boxplot.stats(x)$stats
+    box_outliers <- grDevices::boxplot.stats(x)$out
+    box_center <- hist_max * 1.08
+    box_height <- max(hist_max * 0.08, 0.6)
+    whisker_height <- box_height * 0.45
+
+    graphics::segments(
+      x0 = box_stats[1],
+      y0 = box_center,
+      x1 = box_stats[2],
+      y1 = box_center,
+      col = "#2563eb",
+      lwd = 2,
+      xpd = NA
+    )
+    graphics::segments(
+      x0 = box_stats[4],
+      y0 = box_center,
+      x1 = box_stats[5],
+      y1 = box_center,
+      col = "#2563eb",
+      lwd = 2,
+      xpd = NA
+    )
+    graphics::segments(
+      x0 = box_stats[1],
+      y0 = box_center - whisker_height / 2,
+      x1 = box_stats[1],
+      y1 = box_center + whisker_height / 2,
+      col = "#2563eb",
+      lwd = 2,
+      xpd = NA
+    )
+    graphics::segments(
+      x0 = box_stats[5],
+      y0 = box_center - whisker_height / 2,
+      x1 = box_stats[5],
+      y1 = box_center + whisker_height / 2,
+      col = "#2563eb",
+      lwd = 2,
+      xpd = NA
+    )
+    graphics::rect(
+      xleft = box_stats[2],
+      ybottom = box_center - box_height / 2,
+      xright = box_stats[4],
+      ytop = box_center + box_height / 2,
+      col = "#bfdbfe",
+      border = "#2563eb",
+      lwd = 2,
+      xpd = NA
+    )
+    graphics::segments(
+      x0 = box_stats[3],
+      y0 = box_center - box_height / 2,
+      x1 = box_stats[3],
+      y1 = box_center + box_height / 2,
+      col = "#1d4ed8",
+      lwd = 2,
+      xpd = NA
+    )
+
+    graphics::segments(
+      x0 = mean(x, na.rm = TRUE),
+      y0 = box_center - box_height / 2,
+      x1 = mean(x, na.rm = TRUE),
+      y1 = box_center + box_height / 2,
+      col = "#1d4ed8",
+      lwd = 2,
+      lty = 3,
+      xpd = NA
+    )
+
+    if (length(box_outliers) > 0) {
+      graphics::points(
+        x = box_outliers,
+        y = rep(box_center, length(box_outliers)),
+        pch = 16,
+        cex = 0.8,
+        col = "#2563eb",
+        xpd = NA
+      )
+    }
 
     invisible(path)
   }
@@ -151,6 +241,102 @@ server <- function(input, output, session) {
       f.main = or_default(input$plot_title, "Histograma de capacidad de proceso"),
       f.sub = or_default(input$plot_subtitle, "")
     )
+
+    invisible(path)
+  }
+
+  #' Genera un grafico IMR (Individuals and Moving Range) en un archivo PNG
+  #'
+  #' @param path Ruta del archivo de salida.
+  #' @param width Ancho del PNG en pixeles.
+  #' @param height Alto del PNG en pixeles.
+  #' @param res Resolucion del PNG.
+  #'
+  #' @return Invisiblemente, la ruta del archivo generado.
+  build_imr_plot <- function(
+    path,
+    width = imr_plot_dims$width,
+    height = imr_plot_dims$height,
+    res = 200
+  ) {
+    req(analysis_result())
+
+    result <- current_result()
+    x <- result$data
+    validate(
+      need(length(x) >= 2, "Se requieren al menos dos mediciones para el grafico IMR.")
+    )
+
+    mr <- abs(diff(x))
+    d2 <- SixSigma::ss.cc.getd2(2)
+    d3 <- SixSigma::ss.cc.getd3(2)
+
+    i_center <- mean(x, na.rm = TRUE)
+    sigma_est <- mean(mr, na.rm = TRUE) / d2
+    i_lcl <- i_center - 3 * sigma_est
+    i_ucl <- i_center + 3 * sigma_est
+
+    mr_center <- mean(mr, na.rm = TRUE)
+    mr_lcl <- mr_center * (1 - 3 * (d3 / d2))
+    mr_ucl <- mr_center * (1 + 3 * (d3 / d2))
+    mr_lcl <- max(0, mr_lcl)
+
+    i_index <- seq_along(x)
+    mr_index <- seq_along(mr) + 1
+    i_out <- x < i_lcl | x > i_ucl
+    mr_out <- mr < mr_lcl | mr > mr_ucl
+
+    grDevices::png(filename = path, width = width, height = height, res = res)
+    on.exit(grDevices::dev.off(), add = TRUE)
+    old_par <- graphics::par(no.readonly = TRUE)
+    on.exit(graphics::par(old_par), add = TRUE)
+
+    graphics::par(mfrow = c(2, 1), mar = c(4.5, 4.5, 3, 1.5))
+
+    graphics::plot(
+      i_index,
+      x,
+      type = "b",
+      pch = 16,
+      col = "#2563eb",
+      xlab = "Observacion",
+      ylab = analysis_result()$label,
+      main = "IMR: Individuals",
+      ylim = range(c(x, i_lcl, i_center, i_ucl), na.rm = TRUE)
+    )
+    graphics::abline(h = i_center, col = "#1d4ed8", lwd = 2, lty = 3)
+    graphics::abline(h = i_lcl, col = "#dc2626", lwd = 2, lty = 2)
+    graphics::abline(h = i_ucl, col = "#dc2626", lwd = 2, lty = 2)
+    if (any(i_out, na.rm = TRUE)) {
+      graphics::points(i_index[i_out], x[i_out], pch = 16, cex = 1.1, col = "#dc2626")
+    }
+    graphics::legend(
+      "topright",
+      legend = c("CL", "LCL/UCL", "Fuera de control"),
+      col = c("#1d4ed8", "#dc2626", "#dc2626"),
+      lwd = c(2, 2, NA),
+      lty = c(3, 2, NA),
+      pch = c(NA, NA, 16),
+      bty = "n"
+    )
+
+    graphics::plot(
+      mr_index,
+      mr,
+      type = "b",
+      pch = 16,
+      col = "#2563eb",
+      xlab = "Observacion",
+      ylab = "Moving Range",
+      main = "IMR: Moving Range",
+      ylim = range(c(mr, mr_lcl, mr_center, mr_ucl), na.rm = TRUE)
+    )
+    graphics::abline(h = mr_center, col = "#1d4ed8", lwd = 2, lty = 3)
+    graphics::abline(h = mr_lcl, col = "#dc2626", lwd = 2, lty = 2)
+    graphics::abline(h = mr_ucl, col = "#dc2626", lwd = 2, lty = 2)
+    if (any(mr_out, na.rm = TRUE)) {
+      graphics::points(mr_index[mr_out], mr[mr_out], pch = 16, cex = 1.1, col = "#dc2626")
+    }
 
     invisible(path)
   }
@@ -302,6 +488,8 @@ server <- function(input, output, session) {
       {
         plot_file <- tempfile(fileext = ".png")
         build_capability_plot(plot_file)
+        imr_plot_file <- tempfile(fileext = ".png")
+        build_imr_plot(imr_plot_file)
         study_plot_file <- tempfile(fileext = ".png")
         build_study_plot(study_plot_file)
 
@@ -310,6 +498,7 @@ server <- function(input, output, session) {
           text <- openai_interpret_capability(
             capability_result = current_result(),
             plot_path = plot_file,
+            imr_plot_path = imr_plot_file,
             study_plot_path = study_plot_file,
             language = "es",
             extra_instructions = paste(
@@ -374,6 +563,19 @@ server <- function(input, output, session) {
     )
   }, deleteFile = TRUE)
 
+  output$imr_plot <- renderImage({
+    req(current_result())
+    outfile <- tempfile(fileext = ".png")
+    build_imr_plot(outfile)
+    list(
+      src = outfile,
+      contentType = "image/png",
+      width = imr_plot_dims$width,
+      height = imr_plot_dims$height,
+      alt = "Grafico IMR"
+    )
+  }, deleteFile = TRUE)
+
   output$study_plot <- renderImage({
     req(current_result())
     outfile <- tempfile(fileext = ".png")
@@ -397,6 +599,8 @@ server <- function(input, output, session) {
 
       plot_file <- tempfile(fileext = ".png")
       build_capability_plot(plot_file)
+      imr_plot_file <- tempfile(fileext = ".png")
+      build_imr_plot(imr_plot_file)
       study_plot_file <- tempfile(fileext = ".png")
       build_study_plot(study_plot_file)
 
@@ -409,6 +613,7 @@ server <- function(input, output, session) {
         path = file,
         capability_result = current_result(),
         plot_path = plot_file,
+        imr_plot_path = imr_plot_file,
         interpretation_text = interpretation_text,
         study_plot_path = study_plot_file
       )
